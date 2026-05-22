@@ -102,6 +102,13 @@ function updateClock() {
   secondsEl.textContent = String(s).padStart(2, "0");
   ampmEl.textContent = ampm;
 
+  // Bug 1 Fix: Update day name and full date dynamically
+  const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const MONTHS = ["January", "February", "March", "April", "May", "June",
+                  "July", "August", "September", "October", "November", "December"];
+  dayNameEl.textContent = DAYS[now.getDay()];
+  fullDateEl.textContent = `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+
   checkAlarms(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
 }
 
@@ -132,6 +139,9 @@ function addNewAlarm() {
 function checkAlarms(currentTime) {
   alarms.forEach(alarm => {
     if (!alarm.enabled) return;
+
+    // Bug 2 Fix: Skip alarm if still within snooze period
+    if (alarm.snoozedTime && Date.now() < alarm.snoozedTime) return;
 
     if (alarm.time === currentTime) {
       triggerAlarm(alarm);
@@ -193,6 +203,56 @@ function startRinger() {
 
 function stopRinger() {
   clearInterval(ringInterval);
+}
+
+// ================= RENDER ALARMS =================
+function renderAlarmsList() {
+  const container = document.getElementById("alarms-list");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  if (alarms.length === 0) {
+    container.innerHTML = `<p class="no-alarms">No alarms set.</p>`;
+    return;
+  }
+
+  alarms.forEach(alarm => {
+    const div = document.createElement("div");
+    div.className = "alarm-item";
+    div.innerHTML = `
+      <div class="alarm-info">
+        <span class="alarm-time">${alarm.time}</span>
+        <span class="alarm-label">${alarm.label}</span>
+      </div>
+      <div class="alarm-controls">
+        <label class="toggle-switch">
+          <input type="checkbox" ${alarm.enabled ? "checked" : ""} onchange="toggleAlarm(${alarm.id})">
+          <span class="slider"></span>
+        </label>
+        <button onclick="deleteAlarm(${alarm.id})" class="delete-alarm-btn">🗑</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function toggleAlarm(id) {
+  const alarm = alarms.find(a => a.id === id);
+  if (alarm) {
+    alarm.enabled = !alarm.enabled;
+    saveAlarms();
+    updateAlarmSummary();
+    showToast(alarm.enabled ? "Alarm enabled" : "Alarm disabled");
+  }
+}
+
+function deleteAlarm(id) {
+  alarms = alarms.filter(a => a.id !== id);
+  saveAlarms();
+  renderAlarmsList();
+  updateAlarmSummary();
+  showToast("Alarm deleted");
 }
 
 // ================= WORLD CLOCK =================
